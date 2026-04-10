@@ -10,6 +10,9 @@ Before you begin, ensure you have the following installed:
 - **npm** (comes with Node.js) or **yarn**
 - **Git** - [Download](https://git-scm.com/)
 
+### Or Docker
+- **Docker & Docker Compose** - [Download](https://www.docker.com/products/docker-desktop/)
+
 ### Installation
 
 #### 1. Install Frontend Dependencies
@@ -36,7 +39,21 @@ This will install dependencies for both frontend and backend, then start both se
 
 ## Running the Project
 
-### Option 1: Run Both Servers Together (Recommended)
+### Option 1: Run with Docker Compose (Highly Recommended)
+
+The easiest way to get the entire stack (Frontend + Backend) running with a single command:
+
+```bash
+docker compose up --build
+```
+
+This will:
+- Build the images for both services.
+- Start the backend on `http://localhost:1357`.
+- Start the frontend on `http://localhost:2468` with Hot Reloading enabled.
+- Handle all environment variables and networking automatically.
+
+### Option 2: Run Both Servers with npm
 
 From the root directory:
 
@@ -50,7 +67,7 @@ This will:
 
 **Note**: The backend uses in-memory mock data. All data will reset when you restart the server.
 
-### Option 2: Run Servers Separately
+### Option 3: Run Servers Separately
 
 **Terminal 1 - Backend:**
 ```bash
