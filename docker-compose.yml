@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: msl-eco-backend
+    ports:
+      - "1357:1357"
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=info
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: msl-eco-frontend
+    ports:
+      - "2468:2468"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:1357
+      - WATCHPACK_POLLING=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/backend/node_modules
+    depends_on:
+      - backend

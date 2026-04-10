@@ -39,7 +39,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "server": "cd backend && npm run start",
-    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "npm run client",
     "start-all": "npm install && npm install --prefix backend && npm run start"
   },
   "eslintConfig": {
