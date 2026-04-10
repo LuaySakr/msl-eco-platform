@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Production builds
+build/
+dist/
+
+# Testing
+coverage/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+.claude/
+
+# Logs
+*.log
