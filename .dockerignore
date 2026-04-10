@@ -1,6 +1,14 @@
 node_modules
 npm-debug.log
 build
+<<<<<<< HEAD
 dist
 .git
 .DS_Store
+=======
+.git
+.gitignore
+*.md
+.env
+backend/node_modules
+>>>>>>> cf1a2a7 (add Docker configuration files for backend and frontend services)

@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 version: '3.8'
 
+=======
+>>>>>>> cf1a2a7 (add Docker configuration files for backend and frontend services)
 services:
   backend:
     build:
@@ -10,7 +13,10 @@ services:
       - "1357:1357"
     environment:
       - NODE_ENV=development
+<<<<<<< HEAD
       - LOG_LEVEL=info
+=======
+>>>>>>> cf1a2a7 (add Docker configuration files for backend and frontend services)
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -24,10 +30,20 @@ services:
       - "2468:2468"
     environment:
       - REACT_APP_BACKEND_URL=http://localhost:1357
+<<<<<<< HEAD
       - WATCHPACK_POLLING=true
     volumes:
       - .:/app
       - /app/node_modules
       - /app/backend/node_modules
+=======
+      - REACT_APP_INFURA_KEY=${REACT_APP_INFURA_KEY}
+      - REACT_APP_ALCHEMY_KEY=${REACT_APP_ALCHEMY_KEY}
+      - WATCHPACK_POLLING=true # Useful for Hot Module Replacement in Docker
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/backend/node_modules # Important to avoid shadowing root node_modules
+>>>>>>> cf1a2a7 (add Docker configuration files for backend and frontend services)
     depends_on:
       - backend
