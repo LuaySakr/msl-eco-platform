@@ -14,9 +14,13 @@ services:
     environment:
       - NODE_ENV=development
 <<<<<<< HEAD
+<<<<<<< HEAD
       - LOG_LEVEL=info
 =======
 >>>>>>> cf1a2a7 (add Docker configuration files for backend and frontend services)
+=======
+      - LOG_LEVEL=info
+>>>>>>> d04cdc0 (t)
     volumes:
       - ./backend:/app
       - /app/node_modules
