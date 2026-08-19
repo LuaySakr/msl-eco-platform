@@ -3,6 +3,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const http = require('http');
 const path = require('path');
+const morgan = require('morgan');
 const config = require('./config');
 const logger = require('./utils/logger');
 const socketService = require('./services/socket.service');

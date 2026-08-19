@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Project Changes
 
 ## 1. Docker Setup
@@ -30,3 +31,33 @@
 - **Data contracts**: Wire the dashboard to real API calls, every chart, 
   holding, and transaction is currently hardcoded in `dashboard.service.ts` 
   and never touches the backend.
+=======
+# Changes Summary
+
+## 1. Dockerization
+- Added `docker-compose.yml` with separate `frontend` (port 2468) and `backend` (port 1357) services
+- Used `node:18-alpine` base image for both
+- Volume mapping enabled for hot reloading in development
+
+## 2. Observability Baseline
+- Set `LOG_LEVEL=info` in backend Docker environment — startup logs were silently suppressed
+- Installed `morgan` and wired it into `backend/app.js` — no HTTP requests were being logged at all
+
+## 3. API Path Fix
+- Frontend axios `baseURL` was missing the `/api` prefix
+- All requests were hitting 404 silently; fixed in `src/services/axios.service.ts`
+
+## 4. Auth Endpoints
+- Backend had no email/password auth — only wallet signature login existed
+- Implemented `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+- Password hashing via `bcryptjs`; user stored in existing in-memory mock data service
+- Fixed frontend call paths in `Register.tsx` and `Login.tsx`
+
+## 5. Hygiene
+- Added `.gitignore` — `node_modules/`, `.env`, and `.claude/` were untracked and at risk of being committed
+
+## Known Gaps (Phase 2)
+- Registered users are lost on container restart — needs a real database
+- Dashboard data is fully hardcoded — `dashboard.service.ts` never calls the backend
+- Header shows hardcoded user name ("Bright Mba") — not wired to authenticated user
+>>>>>>> fb1d28b (t)

@@ -33,7 +33,7 @@ const Login = () => {
   const onSubmit = async (data: any) => {
     try {
       setApiError("");
-      const result = await postApi("/auth/login", data);
+      const result = await postApi("/v1/auth/login", data);
       login(result.data);
       toggleModal();
     } catch (e: any) {

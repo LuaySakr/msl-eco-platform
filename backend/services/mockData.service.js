@@ -117,6 +117,35 @@ class MockDataService {
   }
 
   // User operations
+  getUserByEmail(email) {
+    for (const user of this.users.values()) {
+      if (user.email && user.email.toLowerCase() === email.toLowerCase()) {
+        return [user];
+      }
+    }
+    return [];
+  }
+
+  createEmailUser(data) {
+    const id = this.counters.users++;
+    const user = {
+      id,
+      email: data.email,
+      password_hash: data.password_hash,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      address: null,
+      referral_code: `REF${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      referral_id: null,
+      token_balance: 0,
+      MBUSD_balance: 0,
+      is_admin: 0,
+      datetime: new Date(),
+    };
+    this.users.set(id, user);
+    return { insertId: id, ...user };
+  }
+
   getUserByAddress(address) {
     for (const user of this.users.values()) {
       if (user.address.toLowerCase() === address.toLowerCase()) {

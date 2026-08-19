@@ -114,5 +114,157 @@ I performed a manual walkthrough of the dashboard to test link integrity and bas
 
 
 ---
+### Update: April 10, 2026 - Observability Investigation: Why the Backend Is Silent
+
+After verifying both containers were healthy, I noticed something critical: **no backend logs appeared in `docker compose logs` when the frontend was used** — no request lines, no response codes, nothing. I investigated the root cause systematically.
+
+#### Finding 1: `LOG_LEVEL` defaults to `'error'` — startup messages are suppressed
+
+I traced this to `backend/utils/logger.js`. The logger defaults to `'error'` level unless `LOG_LEVEL` is explicitly set in the environment:
+
+```js
+const currentLevel = (process.env.LOG_LEVEL || 'error').toLowerCase();
+```
+
+The `docker-compose.yml` does not set `LOG_LEVEL`, which means `logger.info()` calls — including the "Server listening on port 1357" startup message — are silently swallowed. The backend appears to start, but produces no output.
+
+#### Finding 2: No HTTP request logging middleware
+
+I inspected `backend/app.js` and confirmed there is **no request logging middleware** (no Morgan, no custom logging). Every incoming HTTP request is processed and responded to in complete silence. There is no way to observe that the backend was called at all from the logs.
+
+#### Finding 3: The frontend barely calls the backend
+
+I audited `src/services/dashboard.service.ts` and found that **every function returns hardcoded mock data**. There are no `getApi()` or `postApi()` calls — the entire dashboard renders without ever touching the backend. The only real API calls would come from authentication flows, which fail silently because of the next finding.
+
+#### Finding 4: URL path mismatch — frontend missing `/api` prefix
+
+The frontend axios client (`src/services/axios.service.ts`) sets `baseURL` to `http://localhost:1357`. However, the backend mounts all routes under `/api` in `backend/app.js`:
+
+```js
+app.use('/api', routes);
+```
+
+This means the correct path for login is `http://localhost:1357/api/v1/auth/login-signature`, but the frontend calls `/v1/auth/login-signature` — missing the `/api` prefix entirely. All auth requests are silently hitting a 404.
+
+#### Summary of Issues Found
+
+| # | Issue | File | Impact |
+|---|-------|------|--------|
+| 1 | `LOG_LEVEL` not set in Docker | `docker-compose.yml` | Startup logs suppressed |
+| 2 | No HTTP request logger | `backend/app.js` | Requests are invisible |
+| 3 | All dashboard data is hardcoded | `src/services/dashboard.service.ts` | Backend never reached from dashboard |
+| 4 | Frontend missing `/api` prefix in base URL | `src/services/axios.service.ts` | All auth requests return 404 |
+
+I will now fix these one by one.
+
+---
+### Fix #1: April 10, 2026 - Set `LOG_LEVEL=info` in Docker Compose
+
+**Problem**: The backend logger defaults to `'error'` level, suppressing all `info`-level messages including the server startup confirmation.
+
+**Fix**: Added `LOG_LEVEL=info` to the backend service environment in `docker-compose.yml`.
+
+```yaml
+environment:
+  - NODE_ENV=development
+  - LOG_LEVEL=info
+```
+
+**Result**: The backend will now emit startup logs (`[INFO] Server listening on port 1357`, `[INFO] Environment: development`) and any other `info`-level messages from the application code — visible directly in `docker compose logs backend`.
+
+---
+### Fix #2: April 10, 2026 - Add HTTP Request Logging (Morgan)
+
+**Problem**: The backend had no HTTP request logging middleware. Every incoming request was processed in complete silence — no method, path, status code, or response time was ever emitted to the logs. This made it impossible to confirm whether the frontend was actually reaching the backend.
+
+**Fix**: Installed `morgan` and wired it into `backend/app.js` after the CORS and body-parser middleware:
+
+```js
+const morgan = require('morgan');
+// ...
+app.use(morgan('dev'));
+```
+
+**Lesson learned during implementation**: The `docker-compose.yml` volume configuration mounts an anonymous Docker volume at `/app/node_modules` inside the container. This volume persists between rebuilds and shadows the image's own `node_modules`. Installing a new package on the host was not enough — the old volume had to be destroyed with `docker compose down -v` before the newly built image's `node_modules` (which include `morgan`) could take effect.
+
+**Result**: Every request is now logged to stdout with method, path, status code, and response time. Confirmed working:
+
+```
+GET / 200 5.041 ms
+```
+
+---
+### Fix #3: April 10, 2026 - Fix Frontend Missing `/api` Prefix
+
+**Problem**: The frontend axios client in `src/services/axios.service.ts` was configured with `baseURL: http://localhost:1357`. However, the backend mounts all routes under `/api` in `app.js`:
+
+```js
+app.use('/api', routes);
+```
+
+This meant every frontend API call was missing the `/api` prefix. For example, the login request was going to `POST /auth/login` instead of `POST /api/v1/auth/login-signature` — landing on the backend's 404 handler every time, silently.
+
+The Morgan logs from Fix #2 made this immediately visible:
+```
+POST /auth/login 404 2.019 ms
+```
+
+**Fix**: Appended `/api` to the base URL construction in `src/services/axios.service.ts`:
+
+```ts
+const http = axios.create({
+  baseURL: `${process.env.REACT_APP_BACKEND_URL || "http://localhost:1357"}/api`,
+});
+```
+
+**Result**: All frontend API calls now route correctly into the backend. Confirmed with a health check:
+```
+GET /api/v1/healthz 200 0.540 ms
+```
+
+---
+### Fix #4: April 10, 2026 - Implement Email/Password Register & Login
+
+**Problem**: The frontend Register and Login forms were calling endpoints that did not exist in the backend:
+- `POST /api/auth` (register) → 404
+- `POST /api/auth/login` (login) → 404
+
+The backend's v1 auth system was designed exclusively around blockchain wallet signatures (`POST /api/v1/auth/login-signature`). There were no email/password endpoints at all. The frontend forms were calling wrong paths on top of missing routes — a double failure.
+
+**Root cause of path mismatch**: The frontend was calling `/auth` and `/auth/login`, skipping the `/v1/` version prefix used by all other backend routes.
+
+**Fix implemented**:
+
+1. Installed `bcryptjs` for secure password hashing (pure JS, no native bindings — safe for Alpine Docker images)
+2. Added `getUserByEmail()` and `createEmailUser()` to `backend/services/mockData.service.js` to support email-based user lookup and creation
+3. Added `register` and `login` controller methods to `backend/controllers/auth.controller.js`:
+   - `register`: validates input, checks for duplicate email, hashes password with bcrypt (10 rounds), creates user, returns JWT
+   - `login`: looks up user by email, verifies password with bcrypt, returns JWT
+4. Added `POST /register` and `POST /login` routes to `backend/routes/auth.routes.js` under the existing `/v1/auth` prefix
+5. Fixed frontend paths:
+   - `Register.tsx`: `/auth` → `/v1/auth/register`
+   - `Login.tsx`: `/auth/login` → `/v1/auth/login`
+
+**Confirmed working**:
+```
+POST /api/v1/auth/register 200 113ms
+POST /api/v1/auth/login    200 150ms
+```
+
+**Note**: User data is stored in-memory only (mock data service). Registered users will be lost on container restart. This is acceptable for the current demo state — a real database would be phase 2.
+
+---
+### Fix #5: April 10, 2026 - Add `.gitignore`
+
+**Problem**: The repository had no `.gitignore` file. Running `git status` showed that `backend/node_modules/`, `.env`, and `.claude/` were all untracked — at risk of being accidentally committed.
+
+**Fix**: Created `.gitignore` covering:
+- `node_modules/` and `backend/node_modules/` — dependency folders, should never be in version control
+- `.env` and variants — contains secrets (API keys, JWT secrets)
+- `build/` and `dist/` — generated output
+- `.claude/` — local AI assistant session data
+- OS and IDE artifacts (`.DS_Store`, `.vscode/`, etc.)
+
+---
 *Log started on April 10, 2026*
 >>>>>>> d04cdc0 (t)

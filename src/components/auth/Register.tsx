@@ -29,7 +29,7 @@ const Register = () => {
   const onSubmit = async (data: any) => {
     try {
       setApiError("");
-      const result = await postApi("/auth", data);
+      const result = await postApi("/v1/auth/register", data);
       login(result.data);
       toggleModal();
     } catch (e: any) {
